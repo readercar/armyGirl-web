@@ -1,0 +1,45 @@
+{
+    "importBase": "import",
+    "nativeBase": "native",
+    "name": "resources",
+    "deps": [],
+    "uuids": [
+        "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb",
+        "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb@6c48a",
+        "44abf933-e38f-4911-a98a-5d26020dd222",
+        "7e0081f1-02de-402b-941c-398d8cb813ac"
+    ],
+    "paths": {
+        "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb": [
+            "branding/tt-softs-ci",
+            "cc.ImageAsset",
+            1
+        ],
+        "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb@6c48a": [
+            "branding/tt-softs-ci/texture",
+            "cc.Texture2D",
+            1
+        ],
+        "7e0081f1-02de-402b-941c-398d8cb813ac": [
+            "data/game_config",
+            "cc.JsonAsset",
+            1
+        ],
+        "44abf933-e38f-4911-a98a-5d26020dd222": [
+            "i18n/strings",
+            "cc.JsonAsset",
+            1
+        ]
+    },
+    "scenes": {},
+    "packs": {},
+    "versions": {
+        "import": [],
+        "native": []
+    },
+    "redirect": [],
+    "debug": true,
+    "extensionMap": {},
+    "hasPreloadScript": true,
+    "dependencyRelationships": {}
+}
