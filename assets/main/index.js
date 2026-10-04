@@ -512,22 +512,35 @@ System.register("chunks:///_virtual/BattleView.ts", ['./rollupPluginModLoBabelHe
     execute: function () {
       cclegacy._RF.push({}, "097d2gHpEpH+pIaWvSryUM5", "BattleView", undefined);
       var BattleView = exports('BattleView', /*#__PURE__*/function () {
-        function BattleView(ui, node, height) {
+        function BattleView(ui, node, height, heroId) {
+          if (heroId === void 0) {
+            heroId = 'kr';
+          }
           this.art = void 0;
           this.effects = void 0;
+          this.ordnance = {};
           this.hero = [];
           this.enemies = [];
           this.events = [];
           this.ui = ui;
           this.node = node;
           this.height = height;
-          ui.image('DuskBattlefield', 'art/dusk-backgrounds', [0, 0, 768, 341], 0, 0, 360, height, node);
+          var bgWidth = Math.max(360, height * 768 / 341);
+          ui.image('DuskBattlefield', 'art/dusk-backgrounds', [0, 0, 768, 341], (360 - bgWidth) / 2, 0, bgWidth, height, node);
           this.art = ui.group('AnimeBattle', 0, 0, node).addComponent(Graphics);
-          var actorHeight = height - 50;
-          for (var i = 0; i < 3; i++) this.hero.push(ui.image('MercenaryPose' + i, 'art/dusk-actors', [i * 512, 0, 512, 512], 20, height - 22 - actorHeight, actorHeight, actorHeight, node));
-          this.enemies.push(ui.image('EnemyDrone', 'art/dusk-actors', [45, 530, 390, 475], 253, height - 22 - actorHeight * .8, actorHeight * .66, actorHeight * .8, node));
-          this.enemies.push(ui.image('BossWalker', 'art/dusk-actors', [440, 520, 668, 480], 200, height - 22 - actorHeight * .85, actorHeight * 1.18, actorHeight * .85, node));
+          var actorHeight = Math.min(220, height - 70);
+          var heroIndex = ['kr', 'us', 'jp', 'de'].indexOf(heroId);
+          for (var i = 0; i < 3; i++) this.hero.push(ui.image('MercenaryPose' + i, 'art/military-heroines', [Math.max(0, heroIndex) * 313.5, [32, 440, 820][i], 313.5, [400, 384, 415][i]], 12, height - 22 - actorHeight, actorHeight * .75, actorHeight, node));
+          this.enemies.push(ui.image('EnemyDrone', 'art/dusk-actors', [45, 530, 390, 475], 249, height - 22 - actorHeight * .7, actorHeight * .5, actorHeight * .7, node));
+          this.enemies.push(ui.image('BossWalker', 'art/dusk-actors', [440, 520, 668, 480], 186, height - 22 - actorHeight * .55, 170, actorHeight * .55, node));
           this.effects = ui.group('Effects', 0, 0, node).addComponent(Graphics);
+          for (var _i = 0, _arr = ['grenade', 'missile', 'nuke']; _i < _arr.length; _i++) {
+            var id = _arr[_i];
+            var n = ui.group('Projectile.' + id, 0, 0, node, 30, 30);
+            ui.gear(id, 0, 0, id === 'grenade' ? 22 : 34, n);
+            n.active = false;
+            this.ordnance[id] = n;
+          }
         }
         var _proto = BattleView.prototype;
         _proto.event = function event(e) {
@@ -567,11 +580,13 @@ System.register("chunks:///_virtual/BattleView.ts", ['./rollupPluginModLoBabelHe
           }
           var fx = this.effects;
           fx.clear();
+          var muzzleX = 12 + Math.min(220, this.height - 70) * .68,
+            muzzleY = y - Math.min(220, this.height - 70) * .76;
           if (firing) {
             fx.fillColor = this.ui.color('action');
-            fx.moveTo(145, -y + 99);
-            fx.lineTo(159, -y + 96);
-            fx.lineTo(148, -y + 91);
+            fx.moveTo(muzzleX, -muzzleY + 3);
+            fx.lineTo(muzzleX + 14, -muzzleY);
+            fx.lineTo(muzzleX + 3, -muzzleY - 5);
             fx.close();
             fx.fill();
           }
@@ -580,26 +595,43 @@ System.register("chunks:///_virtual/BattleView.ts", ['./rollupPluginModLoBabelHe
             fx.roundRect(x, -t - h, w, h, Math.min(3, w / 2, h / 2));
             fx.fill();
           };
+          Object.values(this.ordnance).forEach(function (n) {
+            return n.active = false;
+          });
           for (var _iterator = _createForOfIteratorHelperLoose(this.events), _step; !(_step = _iterator()).done;) {
             var e = _step.value;
             var age = (b.now - e.at) / 1000;
             if (age < 0) continue;
-            if (e.kind === 'fire' && age < 160) f(145 + age / 160 * 125, y - 96 + age / 160 * 41, 8, 2, 'action');
+            if (e.kind === 'fire' && age < 160) f(muzzleX + age / 160 * (270 - muzzleX), muzzleY + age / 160 * (y - 65 - muzzleY), 8, 2, 'action');
             if (e.kind === 'hit' && age < 200) {
               fx.strokeColor = this.ui.color('action');
               fx.lineWidth = 2;
-              for (var _i = 0; _i < 6; _i++) {
-                var angle = _i * Math.PI / 3;
+              for (var _i2 = 0; _i2 < 6; _i2++) {
+                var angle = _i2 * Math.PI / 3;
                 var radius = 4 + age / 15;
                 fx.moveTo(275 + Math.cos(angle) * radius, -y + 55 + Math.sin(angle) * radius);
                 fx.lineTo(275 + Math.cos(angle) * (radius + 7), -y + 55 + Math.sin(angle) * (radius + 7));
                 fx.stroke();
               }
             }
-            if (e.kind === 'cast' && e.source === 'grenade' && age < 350) f(115 + age / 350 * 155, y - 50 - Math.sin(age / 350 * Math.PI) * 40, 6, 8, 'action');
+            if (e.kind === 'cast' && e.source === 'grenade' && age < 350) {
+              var n = this.ordnance.grenade;
+              n.active = true;
+              n.setPosition(115 + age / 350 * 155, -y + 70 + Math.sin(age / 350 * Math.PI) * 60);
+              n.angle = -age;
+            }
             if (e.kind === 'cast' && e.source === 'missile' && age < 1500) {
               var phase = age % 300;
-              f(250, phase / 300 * (y - 40), 4, 16, 'action');
+              var _n = this.ordnance.missile;
+              _n.active = true;
+              _n.setPosition(268, -phase / 300 * (y - 40));
+              _n.angle = 180;
+            }
+            if (e.kind === 'cast' && e.source === 'nuke' && age < 900) {
+              var _n2 = this.ordnance.nuke;
+              _n2.active = true;
+              _n2.setPosition(268, -age / 900 * (y - 35));
+              _n2.angle = 180;
             }
             if (e.kind === 'cast' && e.source === 'nuke' && age >= 900 && age < 1500) {
               var reduced = b.data.ui.reduced_fx;
@@ -689,8 +721,16 @@ System.register("chunks:///_virtual/GameSession.ts", ['./rollupPluginModLoBabelH
           this.save();
         }
         var _proto2 = GameSession.prototype;
+        _proto2.chooseHero = function chooseHero(id) {
+          if (!['kr', 'us', 'jp', 'de'].includes(id)) return false;
+          if (!this.data.hero_id) this.battle.epochOrigin = Math.max(this.battle.epochOrigin, this.clock.epochMs() - this.battle.now / 1000);
+          this.data.hero_id = id;
+          this.anchor = this.clock.monotonicMs() - this.battle.now / 1000;
+          this.save();
+          return true;
+        };
         _proto2.tick = function tick() {
-          if (this.suspended) return;
+          if (this.suspended || !this.data.hero_id) return;
           this.battle.advanceTo(Math.round(Math.max(0, this.clock.monotonicMs() - this.anchor) * 1000));
           if (this.battle.now - this.lastSave >= this.config.persistence.autosave_seconds * 1000000) this.save();
         };
@@ -872,6 +912,7 @@ System.register("chunks:///_virtual/Model.ts", ['cc'], function (exports) {
         newSave: newSave,
         quote: quote,
         stats: stats,
+        sustainedDps: sustainedDps,
         validateConfig: validateConfig
       });
       cclegacy._RF.push({}, "7fd7exImJRAtb1gXTiZuN/N", "Model", undefined);
@@ -913,6 +954,7 @@ System.register("chunks:///_virtual/Model.ts", ['cc'], function (exports) {
           };
         }
         return {
+          hero_id: null,
           schema_version: 1,
           config_version: c.config_version,
           revision: 0,
@@ -1005,13 +1047,20 @@ System.register("chunks:///_virtual/Model.ts", ['cc'], function (exports) {
           cost: bulkCost(c, level, count)
         };
       }
+
+      /** Long-run pistol throughput; support coefficients intentionally use firing baseline. */
+      function sustainedDps(c, s) {
+        var capacity = Number(c.combat.magazine_capacity),
+          reload = Number(c.combat.reload_duration_ms) / 1000;
+        return s.attack * (1 + s.critical * (s.criticalMultiplier - 1)) * capacity / ((capacity - 1) / s.rate + Math.max(1 / s.rate, reload));
+      }
       cclegacy._RF.pop();
     }
   };
 });
 
 System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoBabelHelpers.js', 'cc', './Model.ts', './SaveStore.ts', './GameSession.ts', './Widgets.ts', './BattleView.ts'], function (exports) {
-  var _inheritsLoose, _extends, _createForOfIteratorHelperLoose, _createClass, cclegacy, _decorator, screen, view, ResolutionPolicy, resources, JsonAsset, Node, UITransform, sys, profiler, game, Game, Label, Mask, ScrollView, Vec2, Sprite, Texture2D, SpriteFrame, Component, stats, quote, SaveStore, GameSession, BrowserClock, Widgets, BattleView;
+  var _inheritsLoose, _extends, _createForOfIteratorHelperLoose, _createClass, cclegacy, _decorator, screen, view, ResolutionPolicy, resources, JsonAsset, Node, UITransform, sys, profiler, game, Game, Mask, Label, ScrollView, Vec2, Sprite, Texture2D, SpriteFrame, Component, sustainedDps, stats, quote, SaveStore, GameSession, BrowserClock, Widgets, BattleView;
   return {
     setters: [function (module) {
       _inheritsLoose = module.inheritsLoose;
@@ -1032,8 +1081,8 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
       profiler = module.profiler;
       game = module.game;
       Game = module.Game;
-      Label = module.Label;
       Mask = module.Mask;
+      Label = module.Label;
       ScrollView = module.ScrollView;
       Vec2 = module.Vec2;
       Sprite = module.Sprite;
@@ -1041,6 +1090,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
       SpriteFrame = module.SpriteFrame;
       Component = module.Component;
     }, function (module) {
+      sustainedDps = module.sustainedDps;
       stats = module.stats;
       quote = module.quote;
     }, function (module) {
@@ -1081,6 +1131,8 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           _this.navTop = 720;
           _this.preset = 'farming';
           _this.slot = 0;
+          _this.folded = false;
+          _this.pendingHero = 'kr';
           _this.visibility = function () {
             if (typeof document !== 'undefined' && document.hidden) _this.hide();else _this.show();
           };
@@ -1130,6 +1182,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             return;
           }
           profiler.hideStats();
+          this.folded = !!this.d.ui.panel_collapsed;
           this.shell();
           if (typeof document !== 'undefined') document.title = this.t('app.title');
           this.session.battle.onEvent = function (e) {
@@ -1152,6 +1205,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
               version: 'P0'
             };
           }
+          if (!this.d.hero_id) this.heroPicker();
           if (this.session.recovered) this.toast('save.recovered');
         };
         _proto.number = function number(n) {
@@ -1182,9 +1236,9 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           var _this4 = this;
           var u = this.ui;
           this.navTop = this.height - 72;
-          var battleHeight = this.height < 730 ? 160 : 196;
+          var battleHeight = this.folded ? this.height - 280 : Math.max(190, this.height - 504);
           var supportTop = 104 + battleHeight;
-          this.panelTop = supportTop + 116;
+          this.panelTop = supportTop + 104;
           u.box('Background', 0, 0, 360, this.height, 'background');
           u.icon('gold', 12, 12, 22, u.root, function () {
             return 'action';
@@ -1193,7 +1247,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             return _this4.number(Number(_this4.d.run.gold));
           }, u.root, 'action');
           u.label('Profile', 12, 38, 274, 22, 12, function () {
-            return _this4.t(_this4.d.test_profile ? 'profile.test' : 'theme.title');
+            return _this4.t(_this4.d.test_profile ? 'profile.test' : _this4.d.hero_id ? 'hero.name.' + _this4.d.hero_id : 'theme.title');
           }, u.root, 'info');
           u.label('Wallet', 192, 4, 108, 48, 12, function () {
             return _this4.t('resource.compact', {
@@ -1223,7 +1277,8 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             });
           }, u.root, 'action', true);
           var arena = u.group('BattleViewport', 0, 100, u.root, 360, battleHeight);
-          this.battleView = new BattleView(u, arena, battleHeight);
+          arena.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+          this.battleView = new BattleView(u, arena, battleHeight, this.d.hero_id || 'kr');
           u.label('EnemyLabel', 22, 7, 170, 22, 12, function () {
             return _this4.t(_this4.d.run.mode === 'boss' ? 'enemy.boss' : 'enemy.normal');
           }, arena);
@@ -1286,14 +1341,26 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           }, u.root, function () {
             return _this4.d.supports.auto;
           }, true);
-          u.button('Mission', 8, supportTop + 68, 344, 44, function () {
-            return _this4.t(_this4.d.mission.claimed ? 'mission.done' : _this4.d.mission.trained ? 'mission.claim' : 'mission.train');
-          }, function () {
-            if (_this4.d.mission.trained) _this4.result(_this4.session.claim());else _this4.changeTab('hero');
-          }, u.root, function () {
-            return _this4.d.mission.trained > 0 && !_this4.d.mission.claimed;
-          }, true);
-          for (var _i = 0, _tabs = tabs; _i < _tabs.length; _i++) {
+          var handle = u.box('PanelHandle', 8, supportTop + 68, 344, 32, 'panel', u.root, 'border');
+          u.label('PanelHandleLabel', 0, 0, 344, 32, 12, function () {
+            return _this4.t(_this4.folded ? 'ui.expand' : 'ui.collapse');
+          }, handle, 'action', true);
+          var startY = 0;
+          handle.on(Node.EventType.TOUCH_START, function (e) {
+            startY = e.getUILocation().y;
+          });
+          handle.on(Node.EventType.TOUCH_MOVE, function (e) {
+            var dy = e.getUILocation().y - startY;
+            if (Math.abs(dy) > 18) {
+              e.propagationStopped = true;
+              _this4.setFolded(dy < 0);
+            }
+          });
+          handle.on(Node.EventType.TOUCH_END, function (e) {
+            var dy = e.getUILocation().y - startY;
+            _this4.setFolded(Math.abs(dy) > 18 ? dy < 0 : !_this4.folded);
+          });
+          if (!this.folded) for (var _i = 0, _tabs = tabs; _i < _tabs.length; _i++) {
             var tab = _tabs[_i];
             this.createPanel(tab);
           }
@@ -1331,6 +1398,23 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           });
           this.changeTab(this.d.ui.tab, false);
         };
+        _proto.setFolded = function setFolded(folded) {
+          if (this.folded === folded) return;
+          var scroll = this.scrolls.get(this.d.ui.tab);
+          if (scroll) this.d.ui.tabs[this.d.ui.tab].scroll = Math.max(0, scroll.getScrollOffset().y);
+          this.folded = folded;
+          this.d.ui.panel_collapsed = folded;
+          this.session.save();
+          this.close();
+          this.ui.root.children.slice().forEach(function (n) {
+            n.removeFromParent();
+            n.destroy();
+          });
+          this.ui.bindings = [];
+          this.panels.clear();
+          this.scrolls.clear();
+          this.shell();
+        };
         _proto.createPanel = function createPanel(tab) {
           var _this5 = this;
           var u = this.ui;
@@ -1349,7 +1433,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           var h = this.navTop - this.panelTop - 4;
           var viewport = u.group('Viewport', 0, 0, panel, 360, h);
           viewport.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
-          var content = u.group('Content', 0, 0, viewport, 360, tab === 'support' ? 1180 : tab === 'hero' ? 358 : 680);
+          var content = u.group('Content', 0, 0, viewport, 360, tab === 'support' ? 1180 : tab === 'hero' ? 422 : 680);
           var scroll = viewport.addComponent(ScrollView);
           scroll.content = content;
           scroll.horizontal = false;
@@ -1372,14 +1456,14 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             }, function () {
               _this6.d.ui.tabs.hero.sub = i;
               _this6.session.save();
-              if (i) _this6.info('hero.' + id, 'hero.' + id + '.body');
+              if (i === 2) _this6.heroPicker();else if (i) _this6.info('hero.' + id, 'hero.' + id + '.body');
             }, p, function () {
               return _this6.d.ui.tabs.hero.sub === i;
             }, true);
           });
           u.label('DPS', 12, 46, 142, 44, 16, function () {
             return _this6.t('hero.dps', {
-              value: _this6.number(_this6.b.currentStats.baseline)
+              value: _this6.number(sustainedDps(_this6.session.config, _this6.b.currentStats))
             });
           }, p, 'action');
           [1, 10, 'max'].forEach(function (count, i) {
@@ -1434,6 +1518,13 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             });
           });
           u.text('training.hint', 12, 308, 332, 48, 12, p, 'info');
+          u.button('Mission', 8, 364, 344, 44, function () {
+            return _this6.t(_this6.d.mission.claimed ? 'mission.done' : _this6.d.mission.trained ? 'mission.claim' : 'mission.train');
+          }, function () {
+            return _this6.result(_this6.session.claim());
+          }, p, function () {
+            return _this6.d.mission.trained > 0 && !_this6.d.mission.claimed;
+          }, true);
         };
         _proto.support = function support(p) {
           var _this7 = this;
@@ -1487,10 +1578,11 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           this.session.config.supports.forEach(function (s, i) {
             var y = 161 + i * 121;
             u.box('SupportCard.' + s.id, 8, y, 344, 113, 'card', p, 'border');
-            u.label('SupportTitle.' + s.id, 18, y + 4, 215, 25, 15, function () {
+            u.gear(s.id, 16, y + 5, 42, p);
+            u.label('SupportTitle.' + s.id, 62, y + 4, 166, 25, 15, function () {
               return _this7.t('support.' + s.id);
             }, p);
-            u.label('SupportDescription.' + s.id, 18, y + 30, 209, 69, 11, function () {
+            u.label('SupportDescription.' + s.id, 18, y + 47, 209, 55, 11, function () {
               return _this7.t('support.desc.' + s.id, {
                 seconds: s.cooldown_ms / 1000,
                 remaining: Math.ceil(_this7.b.remaining(s.id))
@@ -1610,6 +1702,11 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             record = true;
           }
           if (!tabs.includes(tab)) return;
+          if (this.folded && record) {
+            this.d.ui.tab = tab;
+            this.setFolded(false);
+            return;
+          }
           var old = this.d.ui.tab;
           var oldScroll = this.scrolls.get(old);
           if (record && oldScroll) this.d.ui.tabs[old].scroll = Math.max(0, oldScroll.getScrollOffset().y);
@@ -1623,22 +1720,69 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           (_this$scrolls$get = this.scrolls.get(tab)) == null || _this$scrolls$get.scrollToOffset(new Vec2(0, this.d.ui.tabs[tab].scroll), 0);
           this.ui.refresh();
         };
-        _proto.sheet = function sheet(title, body) {
+        _proto.heroPicker = function heroPicker() {
           var _this10 = this;
+          this.close();
+          this.pendingHero = this.d.hero_id || 'kr';
+          var u = this.ui,
+            h = Math.min(590, this.height - 32),
+            modal = u.box('HeroPickerDim', 0, 0, 360, this.height, '#00000080');
+          u.blocker(modal);
+          this.popup = modal;
+          var panel = u.box('HeroPicker', 12, (this.height - h) / 2, 336, h, 'panel', modal, 'border');
+          u.text('hero.choose', 16, 10, 304, 36, 21, panel, 'action');
+          u.text('hero.choosehint', 16, 48, 304, 40, 12, panel, 'info');
+          var cardH = (h - 178) / 2;
+          ['kr', 'us', 'jp', 'de'].forEach(function (id, i) {
+            var x = 12 + i % 2 * 158,
+              y = 94 + Math.floor(i / 2) * (cardH + 8);
+            var card = u.button('ChooseHero.' + id, x, y, 154, cardH, function () {
+              return '';
+            }, function () {
+              _this10.pendingHero = id;
+              u.refresh();
+            }, panel, function () {
+              return _this10.pendingHero === id;
+            }, true);
+            u.image('HeroPreview.' + id, 'art/military-heroines', [i * 313.5, 32, 313.5, 400], (154 - (cardH - 34) * .75) / 2, 4, (cardH - 34) * .75, cardH - 34, card);
+            u.label('HeroName.' + id, 4, cardH - 34, 146, 30, 13, function () {
+              return _this10.t('hero.name.' + id);
+            }, card, 'text', true);
+            u.meter('HeroSelected', 4, cardH - 3, 146, 3, function () {
+              return _this10.pendingHero === id ? 1 : 0;
+            }, card);
+          });
+          u.button('ConfirmHero', 12, h - 54, 312, 44, function () {
+            return _this10.t('hero.deploy');
+          }, function () {
+            _this10.session.chooseHero(_this10.pendingHero);
+            _this10.close();
+            _this10.ui.root.children.slice().forEach(function (n) {
+              n.removeFromParent();
+              n.destroy();
+            });
+            _this10.ui.bindings = [];
+            _this10.panels.clear();
+            _this10.scrolls.clear();
+            _this10.shell();
+          }, panel);
+        };
+        _proto.sheet = function sheet(title, body) {
+          var _this11 = this;
           this.close();
           var u = this.ui;
           var modal = u.box('ModalDim', 0, 0, 360, this.height, '#00000080');
           u.blocker(modal);
           this.popup = modal;
-          var y = Math.max(this.panelTop - 8, this.height - 330);
+          var y = Math.min(this.height - 302, Math.max(12, this.panelTop - 8));
           var panel = u.box('ModalPanel', 12, y, 336, 290, 'panel', modal, 'border');
           u.box('ModalAccent', 16, 8, 42, 3, 'action', panel);
           u.text(title, 16, 14, 304, 36, 20, panel);
           u.text(body, 16, 59, 304, 136, 14, panel, 'info');
           u.button('ModalClose', 16, 223, 304, 50, function () {
-            return _this10.t('common.close');
+            return _this11.t('common.close');
           }, function () {
-            return _this10.close();
+            return _this11.close();
           }, panel, function () {
             return true;
           }, true);
@@ -1654,7 +1798,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           }
         };
         _proto.settings = function settings() {
-          var _this11 = this;
+          var _this12 = this;
           var panel = this.sheet('settings.title', 'settings.body');
           var u = this.ui;
           var logo = u.group('CompanyCI', 242, 12, panel, 72, 36).addComponent(Sprite);
@@ -1669,25 +1813,25 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           var body = panel.getChildByName('settings.body');
           if (body) body.active = false;
           u.button('Language', 16, 56, 304, 45, function () {
-            return _this11.t('settings.language');
+            return _this12.t('settings.language');
           }, function () {
-            _this11.d.ui.locale = _this11.d.ui.locale === 'ko' ? 'en' : 'ko';
-            _this11.session.save();
-            if (typeof document !== 'undefined') document.title = _this11.t('app.title');
+            _this12.d.ui.locale = _this12.d.ui.locale === 'ko' ? 'en' : 'ko';
+            _this12.session.save();
+            if (typeof document !== 'undefined') document.title = _this12.t('app.title');
             u.refresh();
           }, panel, function () {
             return true;
           }, true);
           u.button('ReducedFX', 16, 108, 304, 45, function () {
-            return _this11.t(_this11.d.ui.reduced_fx ? 'settings.fx.reduced' : 'settings.fx.full');
+            return _this12.t(_this12.d.ui.reduced_fx ? 'settings.fx.reduced' : 'settings.fx.full');
           }, function () {
-            _this11.d.ui.reduced_fx = !_this11.d.ui.reduced_fx;
-            _this11.session.save();
+            _this12.d.ui.reduced_fx = !_this12.d.ui.reduced_fx;
+            _this12.session.save();
           }, panel, function () {
             return true;
           }, true);
           u.label('SaveStatus', 16, 163, 304, 43, 11, function () {
-            return _this11.t(_this11.session.saveError ? 'save.failed' : 'save.local');
+            return _this12.t(_this12.session.saveError ? 'save.failed' : 'save.local');
           }, panel, 'info');
         };
         _proto.hide = function hide() {
@@ -1699,7 +1843,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           (_this$session2 = this.session) == null || _this$session2.resume();
         };
         _proto.update = function update(dt) {
-          var _this12 = this;
+          var _this13 = this;
           if (!this.session) return;
           this.session.tick();
           this.battleView.render(this.b);
@@ -1709,13 +1853,13 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             this.ui.refresh();
           }
           var failure = this.b.lastFailure;
-          if (failure && failure !== this.failureSeen) {
+          if (this.d.hero_id && failure && failure !== this.failureSeen) {
             this.failureSeen = failure;
             var panel = this.sheet('boss.failed', 'boss.failed.body');
             this.ui.label('Remaining', 16, 168, 304, 38, 14, function () {
-              return _this12.t('boss.remaining', {
+              return _this13.t('boss.remaining', {
                 percent: (failure.remaining * 100).toFixed(1),
-                stage: _this12.d.run.farming
+                stage: _this13.d.run.farming
               });
             }, panel, 'action');
           }
@@ -1776,6 +1920,8 @@ System.register("chunks:///_virtual/SaveStore.ts", ['./rollupPluginModLoBabelHel
           _int(d.magazine.rounds, 0, Number(c.combat.magazine_capacity));
           if (!Number.isFinite(d.magazine.ready_at) || d.magazine.ready_at < 0) throw Error('SAVE_CORRUPT');
         }
+        if (d.ui.panel_collapsed !== undefined && typeof d.ui.panel_collapsed !== 'boolean') throw Error('SAVE_CORRUPT');
+        if (d.hero_id != null && !['kr', 'us', 'jp', 'de'].includes(d.hero_id)) throw Error('SAVE_CORRUPT');
         _int(d.revision);
         _int(d.serial);
         _int(d.rng, 0, 4294967295);
@@ -1903,7 +2049,7 @@ System.register("chunks:///_virtual/SaveStore.ts", ['./rollupPluginModLoBabelHel
 });
 
 System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpers.js', 'cc'], function (exports) {
-  var _construct, _createForOfIteratorHelperLoose, cclegacy, Color, Node, Layers, UITransform, Graphics, Label, Sprite, resources, Texture2D, SpriteFrame, BlockInputEvents, Rect;
+  var _construct, _createForOfIteratorHelperLoose, cclegacy, Color, Node, Layers, UITransform, Graphics, Label, Rect, Sprite, resources, Texture2D, SpriteFrame, BlockInputEvents;
   return {
     setters: [function (module) {
       _construct = module.construct;
@@ -1916,12 +2062,12 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
       UITransform = module.UITransform;
       Graphics = module.Graphics;
       Label = module.Label;
+      Rect = module.Rect;
       Sprite = module.Sprite;
       resources = module.resources;
       Texture2D = module.Texture2D;
       SpriteFrame = module.SpriteFrame;
       BlockInputEvents = module.BlockInputEvents;
-      Rect = module.Rect;
     }],
     execute: function () {
       cclegacy._RF.push({}, "47c2bWQQjJLd5SHThZ8Xgz3", "Widgets", undefined);
@@ -1980,15 +2126,25 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
           var n = this.group(name, x, y, parent, w, h);
           var g = n.addComponent(Graphics);
           g.fillColor = this.color(fill);
-          g.roundRect(0, -h, w, h, 5);
+          this.chamfer(g, w, h);
           g.fill();
           if (border) {
             g.strokeColor = this.color(border);
             g.lineWidth = 1;
-            g.roundRect(.5, -h + .5, w - 1, h - 1, 5);
+            this.chamfer(g, w, h);
             g.stroke();
           }
           return n;
+        };
+        _proto.chamfer = function chamfer(g, w, h) {
+          var c = Math.min(6, h / 4);
+          g.moveTo(c, 0);
+          g.lineTo(w, 0);
+          g.lineTo(w, -h + c);
+          g.lineTo(w - c, -h);
+          g.lineTo(0, -h);
+          g.lineTo(0, -c);
+          g.close();
         };
         _proto.label = function label(name, x, y, w, h, size, value, parent, color, center) {
           if (parent === void 0) {
@@ -2065,11 +2221,11 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
               if (!n.isValid) return;
               g.clear();
               g.fillColor = _this2.color(enabled() ? secondary ? 'card' : 'action' : 'background');
-              g.roundRect(0, -h, w, h, 5);
+              _this2.chamfer(g, w, h);
               g.fill();
               g.strokeColor = _this2.color(enabled() ? 'border' : 'panel');
               g.lineWidth = 1;
-              g.roundRect(.5, -h + .5, w - 1, h - 1, 5);
+              _this2.chamfer(g, w, h);
               g.stroke();
               g.fillColor = _this2.color(enabled() && !secondary ? '#F2CFAB' : 'border');
               g.rect(1, -3, w - 2, 2);
@@ -2100,6 +2256,7 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
           var _this4 = this;
           var n = this.group('Icon', x, y, parent, size, size),
             g = n.addComponent(Graphics);
+          var gear = this.gear(id, x - 4, y - 4, size + 8, parent);
           var aliases = {
             attack: 'armory',
             grenade: 'support',
@@ -2114,6 +2271,7 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
               var raw = typeof id === 'string' ? id : id(),
                 key = aliases[raw] || raw,
                 k = size / 24;
+              g.enabled = !['grenade', 'adrenaline', 'mortar', 'recon_drone', 'missile', 'tank', 'airstrike', 'nuke'].includes(raw);
               g.clear();
               g.strokeColor = _this4.color(color());
               g.fillColor = _this4.color(color());
@@ -2199,6 +2357,28 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
             }
           });
         };
+        _proto.gear = function gear(id, x, y, size, parent) {
+          var order = ['grenade', 'adrenaline', 'mortar', 'recon_drone', 'missile', 'tank', 'airstrike', 'nuke'];
+          var rects = [[60, 80, 270, 380], [436, 74, 280, 390], [780, 75, 314, 385], [1135, 128, 395, 310], [108, 505, 160, 456], [320, 570, 450, 345], [780, 564, 410, 355], [1220, 508, 260, 452]];
+          var sp = this.image('GearArt', 'art/military-gear', [0, 0, 384, 512], x, y, size, size, parent);
+          var previous = -2;
+          this.bindings.push({
+            node: sp.node,
+            update: function update() {
+              var index = order.indexOf(typeof id === 'string' ? id : id());
+              sp.node.active = index >= 0;
+              if (index >= 0 && sp.spriteFrame && previous !== index) {
+                var r = rects[index],
+                  scale = size / Math.max(r[2], r[3]);
+                sp.spriteFrame.rect = new Rect(r[0], r[1], r[2], r[3]);
+                sp.node.getComponent(UITransform).setContentSize(r[2] * scale, r[3] * scale);
+                sp.node.setPosition(x + (size - r[2] * scale) / 2, -y - (size - r[3] * scale) / 2);
+                previous = index;
+              }
+            }
+          });
+          return sp;
+        };
         _proto.image = function image(name, path, rect, x, y, w, h, parent) {
           var n = this.group(name, x, y, parent, w, h),
             sp = n.addComponent(Sprite);
@@ -2211,7 +2391,7 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
             if (!n.isValid) return;
             var frame = new SpriteFrame();
             frame.texture = texture;
-            if (rect) frame.rect = _construct(Rect, rect);
+            if (rect) frame.rect = rect[2] <= 1 ? new Rect(rect[0] * texture.width, rect[1] * texture.height, rect[2] * texture.width, rect[3] * texture.height) : _construct(Rect, rect);
             sp.spriteFrame = frame;
           });
           return sp;
