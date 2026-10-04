@@ -4,12 +4,49 @@
     "name": "resources",
     "deps": [],
     "uuids": [
+        "0e05949a9",
         "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb",
         "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb@6c48a",
         "44abf933-e38f-4911-a98a-5d26020dd222",
-        "7e0081f1-02de-402b-941c-398d8cb813ac"
+        "50b0f4b8-7257-4343-b505-16d92b2e9cf7",
+        "50b0f4b8-7257-4343-b505-16d92b2e9cf7@6c48a",
+        "50b0f4b8-7257-4343-b505-16d92b2e9cf7@f9941",
+        "7e0081f1-02de-402b-941c-398d8cb813ac",
+        "e3941a69-eb4f-46a5-b352-eb2a1a4bf4d1",
+        "e3941a69-eb4f-46a5-b352-eb2a1a4bf4d1@6c48a",
+        "e3941a69-eb4f-46a5-b352-eb2a1a4bf4d1@f9941"
     ],
     "paths": {
+        "e3941a69-eb4f-46a5-b352-eb2a1a4bf4d1": [
+            "art/dusk-actors",
+            "cc.ImageAsset",
+            1
+        ],
+        "e3941a69-eb4f-46a5-b352-eb2a1a4bf4d1@6c48a": [
+            "art/dusk-actors/texture",
+            "cc.Texture2D",
+            1
+        ],
+        "e3941a69-eb4f-46a5-b352-eb2a1a4bf4d1@f9941": [
+            "art/dusk-actors/spriteFrame",
+            "cc.SpriteFrame",
+            1
+        ],
+        "50b0f4b8-7257-4343-b505-16d92b2e9cf7": [
+            "art/dusk-backgrounds",
+            "cc.ImageAsset",
+            1
+        ],
+        "50b0f4b8-7257-4343-b505-16d92b2e9cf7@6c48a": [
+            "art/dusk-backgrounds/texture",
+            "cc.Texture2D",
+            1
+        ],
+        "50b0f4b8-7257-4343-b505-16d92b2e9cf7@f9941": [
+            "art/dusk-backgrounds/spriteFrame",
+            "cc.SpriteFrame",
+            1
+        ],
         "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb": [
             "branding/tt-softs-ci",
             "cc.ImageAsset",
@@ -32,7 +69,13 @@
         ]
     },
     "scenes": {},
-    "packs": {},
+    "packs": {
+        "0e05949a9": [
+            "3e430a3e-1105-48fe-b2cf-ce4d61dc95eb@6c48a",
+            "50b0f4b8-7257-4343-b505-16d92b2e9cf7@6c48a",
+            "e3941a69-eb4f-46a5-b352-eb2a1a4bf4d1@6c48a"
+        ]
+    },
     "versions": {
         "import": [],
         "native": []

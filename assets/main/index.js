@@ -17,6 +17,7 @@ System.register("chunks:///_virtual/Battle.ts", ['./rollupPluginModLoBabelHelper
       /** All combat times are integer microseconds. Rendering never awards damage or currency. */
       var Battle = exports('Battle', /*#__PURE__*/function () {
         function Battle(config, data, epoch) {
+          var _data$magazine;
           this.now = 0;
           this.epochOrigin = void 0;
           this.enemy = null;
@@ -39,6 +40,10 @@ System.register("chunks:///_virtual/Battle.ts", ['./rollupPluginModLoBabelHelper
           this.config = config;
           this.data = data;
           this.epochOrigin = Math.max(epoch, data.saved_at);
+          (_data$magazine = data.magazine) != null ? _data$magazine : data.magazine = {
+            rounds: Number(config.combat.magazine_capacity),
+            ready_at: 0
+          };
           if (epoch < data.saved_at) data.clock_suspect = true;
           if (data.run.mode === 'boss') {
             data.run.mode = 'farming';
@@ -175,6 +180,21 @@ System.register("chunks:///_virtual/Battle.ts", ['./rollupPluginModLoBabelHelper
         _proto.fire = function fire() {
           var _this3 = this;
           if (!this.enemy) return;
+          var magazine = this.data.magazine;
+          if (this.reloadRemaining > 0) {
+            var _target = this.enemy.id;
+            this.schedule(this.now + Math.round(this.reloadRemaining * 1000000), 6, function () {
+              var _this3$enemy;
+              if (((_this3$enemy = _this3.enemy) == null ? void 0 : _this3$enemy.id) === _target) _this3.fire();
+            });
+            return;
+          }
+          if (magazine.rounds === 0) {
+            magazine.rounds = this.magazineCapacity;
+            magazine.ready_at = 0;
+            this.emit('reload_end');
+          }
+          magazine.rounds--;
           var s = this.currentStats;
           var critical = this.random() < s.critical;
           var hit = {
@@ -195,9 +215,15 @@ System.register("chunks:///_virtual/Battle.ts", ['./rollupPluginModLoBabelHelper
           this.scheduleHit(hit);
           var target = hit.target;
           this.nextShotAt = this.now + Math.round(1000000 / s.rate);
+          if (magazine.rounds === 0) {
+            magazine.ready_at = this.epoch + this.n('reload_duration_ms');
+            this.nextShotAt = Math.max(this.nextShotAt, this.now + this.n('reload_duration_ms') * 1000);
+            this.emit('reload_start');
+          }
+          this.commit();
           this.schedule(this.nextShotAt, 6, function () {
-            var _this3$enemy;
-            if (((_this3$enemy = _this3.enemy) == null ? void 0 : _this3$enemy.id) === target) _this3.fire();
+            var _this3$enemy2;
+            if (((_this3$enemy2 = _this3.enemy) == null ? void 0 : _this3$enemy2.id) === target) _this3.fire();
           });
         };
         _proto.scheduleCommand = function scheduleCommand(at, action, withdraw) {
@@ -429,6 +455,21 @@ System.register("chunks:///_virtual/Battle.ts", ['./rollupPluginModLoBabelHelper
           this.commit();
         };
         _createClass(Battle, [{
+          key: "magazineCapacity",
+          get: function get() {
+            return this.n('magazine_capacity');
+          }
+        }, {
+          key: "reloadRemaining",
+          get: function get() {
+            return Math.max(0, (this.data.magazine.ready_at - this.epoch) / 1000);
+          }
+        }, {
+          key: "rounds",
+          get: function get() {
+            return this.reloadRemaining === 0 && this.data.magazine.rounds === 0 ? this.magazineCapacity : this.data.magazine.rounds;
+          }
+        }, {
           key: "epoch",
           get: function get() {
             return this.epochOrigin + this.now / 1000;
@@ -474,11 +515,18 @@ System.register("chunks:///_virtual/BattleView.ts", ['./rollupPluginModLoBabelHe
         function BattleView(ui, node, height) {
           this.art = void 0;
           this.effects = void 0;
+          this.hero = [];
+          this.enemies = [];
           this.events = [];
           this.ui = ui;
           this.node = node;
           this.height = height;
-          this.art = ui.group('PixelBattle', 0, 0, node).addComponent(Graphics);
+          ui.image('DuskBattlefield', 'art/dusk-backgrounds', [0, 0, 768, 341], 0, 0, 360, height, node);
+          this.art = ui.group('AnimeBattle', 0, 0, node).addComponent(Graphics);
+          var actorHeight = height - 50;
+          for (var i = 0; i < 3; i++) this.hero.push(ui.image('MercenaryPose' + i, 'art/dusk-actors', [i * 512, 0, 512, 512], 20, height - 22 - actorHeight, actorHeight, actorHeight, node));
+          this.enemies.push(ui.image('EnemyDrone', 'art/dusk-actors', [45, 530, 390, 475], 253, height - 22 - actorHeight * .8, actorHeight * .66, actorHeight * .8, node));
+          this.enemies.push(ui.image('BossWalker', 'art/dusk-actors', [440, 520, 668, 480], 200, height - 22 - actorHeight * .85, actorHeight * 1.18, actorHeight * .85, node));
           this.effects = ui.group('Effects', 0, 0, node).addComponent(Graphics);
         }
         var _proto = BattleView.prototype;
@@ -498,76 +546,56 @@ System.register("chunks:///_virtual/BattleView.ts", ['./rollupPluginModLoBabelHe
             g.rect(x, -t - h, w, h);
             g.fill();
           };
-          r(0, 0, 360, this.height, 'battle_olive');
-          r(0, 30, 360, 55, '#7E9581');
-          for (var i = 0; i < 8; i++) r(i * 51, 44 + i % 3 * 12, 42, 70, '#4D6659');
-          r(0, y - 10, 360, 32, '#9F9472');
-          r(0, y + 14, 360, 8, '#756D54');
-          for (var _i = 0; _i < 14; _i++) r(_i * 29, y - 17 + _i % 2 * 5, 18, 8, '#879071');
           var firing = this.events.some(function (e) {
-            return e.kind === 'fire' && b.now - e.at >= 0 && b.now - e.at < 60000;
+            return e.kind === 'fire' && b.now - e.at >= 0 && b.now - e.at < 120000;
           });
-          var x = 68 - (firing ? 2 : 0);
-          // Adult silhouette: head 13px, total height 82px; beret, ponytail, boots, pistol.
-          r(x - 4, y - 78, 13, 17, '#342F30');
-          r(x - 9, y - 71, 6, 28, '#44372E');
-          r(x, y - 77, 12, 15, '#D6AE82');
-          r(x - 5, y - 82, 23, 7, '#B96543');
-          r(x - 4, y - 61, 21, 28, '#26383B');
-          r(x - 1, y - 58, 17, 21, '#A4AA6E');
-          r(x + 4, y - 57, 22, 7, '#ADB276');
-          r(x + 22, y - 55, 10, 6, '#D6AE82');
-          r(x + 31, y - 58, 19, 6, '#122A35');
-          r(x + 31, y - 52, 6, 8, '#122A35');
-          r(x - 4, y - 53, 6, 22, '#667A58');
-          r(x - 3, y - 34, 21, 5, '#E3B66C');
-          r(x - 2, y - 29, 8, 23, '#5A6F50');
-          r(x + 10, y - 29, 8, 23, '#738260');
-          r(x - 3, y - 7, 12, 7, '#172B32');
-          r(x + 10, y - 7, 12, 7, '#172B32');
-          if (firing) {
-            r(x + 52, y - 60, 10, 5, 'action');
-            r(x + 55, y - 63, 4, 11, 'action');
-          }
+          var pose = b.reloadRemaining > 0 ? 2 : firing ? 1 : 0;
+          this.hero.forEach(function (sp, i) {
+            sp.node.active = i === pose;
+          });
+          this.enemies.forEach(function (sp, i) {
+            var _b$enemy;
+            sp.node.active = !!b.enemy && i === 1 === !!((_b$enemy = b.enemy) != null && _b$enemy.boss);
+          });
           var enemy = b.enemy;
-          var ex = 269;
-          if (enemy != null && enemy.boss) {
-            r(ex - 30, y - 42, 94, 33, '#172D35');
-            r(ex - 26, y - 39, 86, 22, '#829888');
-            r(ex - 18, y - 16, 74, 16, '#173039');
-            for (var _i2 = 0; _i2 < 5; _i2++) r(ex - 14 + _i2 * 14, y - 12, 9, 8, '#B1B8A0');
-            r(ex - 8, y - 56, 42, 20, '#41584F');
-            r(ex - 36, y - 49, 33, 7, '#213740');
-            r(ex + 18, y - 52, 7, 5, 'danger');
-          } else if (enemy) {
-            r(ex - 8, y - 67, 22, 17, '#162E39');
-            r(ex - 5, y - 63, 16, 6, '#D17B4B');
-            r(ex - 12, y - 47, 31, 30, '#162E39');
-            r(ex - 7, y - 43, 21, 21, '#8AA399');
-            r(ex - 18, y - 43, 6, 21, '#263C45');
-            r(ex + 20, y - 43, 6, 21, '#263C45');
-            r(ex - 8, y - 17, 8, 17, '#172B35');
-            r(ex + 9, y - 17, 8, 17, '#172B35');
-            r(ex - 12, y - 4, 15, 4, '#172B35');
-            r(ex + 8, y - 4, 15, 4, '#172B35');
-          }
+          r(0, this.height - 23, 360, 23, '#172431DD');
+          for (var i = 0; i < b.magazineCapacity; i++) r(246 + i * 12, this.height - 17, 7, 10, i < b.rounds ? 'action' : 'border');
+          if (b.reloadRemaining > 0) r(246, this.height - 4, 96 * (1 - b.reloadRemaining * 1000 / Number(b.config.combat.reload_duration_ms)), 2, 'action');
           r(16, 4, 328, 30, 'background');
           if (enemy) {
             r(18, 29, 324 * enemy.hp / enemy.maxHp, 4, enemy.boss ? 'danger' : 'action');
           }
           var fx = this.effects;
           fx.clear();
+          if (firing) {
+            fx.fillColor = this.ui.color('action');
+            fx.moveTo(145, -y + 99);
+            fx.lineTo(159, -y + 96);
+            fx.lineTo(148, -y + 91);
+            fx.close();
+            fx.fill();
+          }
           var f = function f(x, t, w, h, c) {
             fx.fillColor = _this.ui.color(c);
-            fx.rect(x, -t - h, w, h);
+            fx.roundRect(x, -t - h, w, h, Math.min(3, w / 2, h / 2));
             fx.fill();
           };
           for (var _iterator = _createForOfIteratorHelperLoose(this.events), _step; !(_step = _iterator()).done;) {
             var e = _step.value;
             var age = (b.now - e.at) / 1000;
             if (age < 0) continue;
-            if (e.kind === 'fire' && age < 160) f(120 + age / 160 * 144, y - 54, 8, 2, 'action');
-            if (e.kind === 'hit' && age < 160) f(255, y - 43, 18, 18, '#D8C57C');
+            if (e.kind === 'fire' && age < 160) f(145 + age / 160 * 125, y - 96 + age / 160 * 41, 8, 2, 'action');
+            if (e.kind === 'hit' && age < 200) {
+              fx.strokeColor = this.ui.color('action');
+              fx.lineWidth = 2;
+              for (var _i = 0; _i < 6; _i++) {
+                var angle = _i * Math.PI / 3;
+                var radius = 4 + age / 15;
+                fx.moveTo(275 + Math.cos(angle) * radius, -y + 55 + Math.sin(angle) * radius);
+                fx.lineTo(275 + Math.cos(angle) * (radius + 7), -y + 55 + Math.sin(angle) * (radius + 7));
+                fx.stroke();
+              }
+            }
             if (e.kind === 'cast' && e.source === 'grenade' && age < 350) f(115 + age / 350 * 155, y - 50 - Math.sin(age / 350 * Math.PI) * 40, 6, 8, 'action');
             if (e.kind === 'cast' && e.source === 'missile' && age < 1500) {
               var phase = age % 300;
@@ -576,10 +604,20 @@ System.register("chunks:///_virtual/BattleView.ts", ['./rollupPluginModLoBabelHe
             if (e.kind === 'cast' && e.source === 'nuke' && age >= 900 && age < 1500) {
               var reduced = b.data.ui.reduced_fx;
               if (reduced) f(250, y - 45, 28, 25, 'danger');else {
-                f(247, y - 92, 23, 76, 'danger');
-                f(215, y - 114, 82, 32, 'danger');
-                f(229, y - 127, 55, 22, 'action');
-                f(205, y - 99, 104, 16, '#E7AC62');
+                var expansion = (age - 900) / 600;
+                fx.fillColor = this.ui.color('danger');
+                fx.ellipse(269, -y + 50, 14 + expansion * 10, 50);
+                fx.fill();
+                fx.fillColor = this.ui.color('action');
+                fx.ellipse(269, -y + 105, 48 + expansion * 10, 22);
+                fx.fill();
+                fx.fillColor = this.ui.color('#F2CFAB');
+                fx.ellipse(269, -y + 117, 32, 15);
+                fx.fill();
+                fx.strokeColor = this.ui.color('action');
+                fx.lineWidth = 3;
+                fx.ellipse(269, -y + 5, 30 + expansion * 55, 9 + expansion * 8);
+                fx.stroke();
               }
             }
           }
@@ -1155,7 +1193,7 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             return _this4.number(Number(_this4.d.run.gold));
           }, u.root, 'action');
           u.label('Profile', 12, 38, 274, 22, 12, function () {
-            return _this4.t(_this4.d.test_profile ? 'profile.test' : 'profile.name');
+            return _this4.t(_this4.d.test_profile ? 'profile.test' : 'theme.title');
           }, u.root, 'info');
           u.label('Wallet', 192, 4, 108, 48, 12, function () {
             return _this4.t('resource.compact', {
@@ -1196,8 +1234,13 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
             }) : _this4.t('enemy.incoming');
           }, arena, 'text', true);
           u.label('AutoFire', 10, battleHeight - 21, 240, 18, 10, function () {
-            return _this4.t('battle.auto');
-          }, arena, 'background');
+            return _this4.b.reloadRemaining > 0 ? _this4.t('battle.reload', {
+              seconds: _this4.b.reloadRemaining.toFixed(1)
+            }) : _this4.t('battle.ammo', {
+              rounds: _this4.b.rounds,
+              capacity: _this4.b.magazineCapacity
+            });
+          }, arena, 'text');
           var _loop = function _loop(i) {
             var ready = function ready() {
               return !!_this4.b.activePreset[i] && _this4.b.remaining(_this4.b.activePreset[i]) === 0;
@@ -1293,6 +1336,16 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           var u = this.ui;
           var panel = u.box('Panel.' + tab, 0, this.panelTop, 360, this.navTop - this.panelTop, 'panel');
           this.panels.set(tab, panel);
+          var artIndex = {
+            hero: 0,
+            armory: 1,
+            support: 2,
+            squad: 3,
+            operations: 4,
+            supply: 5
+          }[tab];
+          u.image('PanelArtwork.' + tab, 'art/dusk-backgrounds', [artIndex % 2 * 768, Math.floor(artIndex / 2) * 341, 768, 341], 0, 0, 360, this.navTop - this.panelTop, panel);
+          u.box('PanelTint', 0, 0, 360, this.navTop - this.panelTop, '#172431C8', panel);
           var h = this.navTop - this.panelTop - 4;
           var viewport = u.group('Viewport', 0, 0, panel, 360, h);
           viewport.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
@@ -1534,8 +1587,15 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
               return _this9.d.ui.tabs[tab].sub === i;
             }, true);
           });
-          u.text('content.' + tab, 16, 70, 328, 56, 22, p);
-          u.text('phase.' + tab, 16, 144, 328, 112, 15, p, 'info');
+          var index = {
+            armory: 1,
+            squad: 3,
+            supply: 5
+          }[tab];
+          u.image('RoomArtwork.' + tab, 'art/dusk-backgrounds', [index % 2 * 768, Math.floor(index / 2) * 341, 768, 341], 8, 58, 344, 94, p);
+          u.box('RoomCaption', 8, 58, 190, 94, '#172431C0', p);
+          u.text('content.' + tab, 20, 70, 176, 64, 20, p);
+          u.text('phase.' + tab, 16, 162, 328, 94, 15, p, 'info');
           u.label('Parts.' + tab, 16, 268, 328, 42, 15, function () {
             return _this9.t('resource.parts', {
               value: _this9.number(Number(_this9.d.wallet.parts))
@@ -1572,7 +1632,8 @@ System.register("chunks:///_virtual/ProjectBootstrap.ts", ['./rollupPluginModLoB
           this.popup = modal;
           var y = Math.max(this.panelTop - 8, this.height - 330);
           var panel = u.box('ModalPanel', 12, y, 336, 290, 'panel', modal, 'border');
-          u.text(title, 16, 10, 304, 40, 20, panel);
+          u.box('ModalAccent', 16, 8, 42, 3, 'action', panel);
+          u.text(title, 16, 14, 304, 36, 20, panel);
           u.text(body, 16, 59, 304, 136, 14, panel, 'info');
           u.button('ModalClose', 16, 223, 304, 50, function () {
             return _this10.t('common.close');
@@ -1711,6 +1772,10 @@ System.register("chunks:///_virtual/SaveStore.ts", ['./rollupPluginModLoBabelHel
         var money = function money(s) {
           if (typeof s !== 'string' || !s.trim() || !Number.isFinite(Number(s)) || Number(s) < 0) throw Error('SAVE_CORRUPT');
         };
+        if (d.magazine) {
+          _int(d.magazine.rounds, 0, Number(c.combat.magazine_capacity));
+          if (!Number.isFinite(d.magazine.ready_at) || d.magazine.ready_at < 0) throw Error('SAVE_CORRUPT');
+        }
         _int(d.revision);
         _int(d.serial);
         _int(d.rng, 0, 4294967295);
@@ -1838,9 +1903,10 @@ System.register("chunks:///_virtual/SaveStore.ts", ['./rollupPluginModLoBabelHel
 });
 
 System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpers.js', 'cc'], function (exports) {
-  var _createForOfIteratorHelperLoose, cclegacy, Color, Node, Layers, UITransform, Graphics, Label, BlockInputEvents;
+  var _construct, _createForOfIteratorHelperLoose, cclegacy, Color, Node, Layers, UITransform, Graphics, Label, Sprite, resources, Texture2D, SpriteFrame, BlockInputEvents, Rect;
   return {
     setters: [function (module) {
+      _construct = module.construct;
       _createForOfIteratorHelperLoose = module.createForOfIteratorHelperLoose;
     }, function (module) {
       cclegacy = module.cclegacy;
@@ -1850,7 +1916,12 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
       UITransform = module.UITransform;
       Graphics = module.Graphics;
       Label = module.Label;
+      Sprite = module.Sprite;
+      resources = module.resources;
+      Texture2D = module.Texture2D;
+      SpriteFrame = module.SpriteFrame;
       BlockInputEvents = module.BlockInputEvents;
+      Rect = module.Rect;
     }],
     execute: function () {
       cclegacy._RF.push({}, "47c2bWQQjJLd5SHThZ8Xgz3", "Widgets", undefined);
@@ -1909,12 +1980,12 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
           var n = this.group(name, x, y, parent, w, h);
           var g = n.addComponent(Graphics);
           g.fillColor = this.color(fill);
-          g.rect(0, -h, w, h);
+          g.roundRect(0, -h, w, h, 5);
           g.fill();
           if (border) {
             g.strokeColor = this.color(border);
             g.lineWidth = 1;
-            g.rect(.5, -h + .5, w - 1, h - 1);
+            g.roundRect(.5, -h + .5, w - 1, h - 1, 5);
             g.stroke();
           }
           return n;
@@ -1994,13 +2065,13 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
               if (!n.isValid) return;
               g.clear();
               g.fillColor = _this2.color(enabled() ? secondary ? 'card' : 'action' : 'background');
-              g.rect(0, -h, w, h);
+              g.roundRect(0, -h, w, h, 5);
               g.fill();
               g.strokeColor = _this2.color(enabled() ? 'border' : 'panel');
               g.lineWidth = 1;
-              g.rect(.5, -h + .5, w - 1, h - 1);
+              g.roundRect(.5, -h + .5, w - 1, h - 1, 5);
               g.stroke();
-              g.fillColor = _this2.color(enabled() && !secondary ? '#FFDB96' : 'border');
+              g.fillColor = _this2.color(enabled() && !secondary ? '#F2CFAB' : 'border');
               g.rect(1, -3, w - 2, 2);
               g.fill();
             }
@@ -2024,25 +2095,11 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
             }
           });
         }
-        /** Original code-drawn pixel pictograms; no reference-game assets. */;
+        /** Clean vector emblems share the anime theme's thin outlines. */;
         _proto.icon = function icon(id, x, y, size, parent, color) {
           var _this4 = this;
-          var patterns = {
-            hero: ['00111100', '00111100', '00011000', '01111110', '11111111', '10111101', '00100100', '01100110'],
-            armory: ['00000000', '11111111', '11111111', '00111000', '00110000', '00110000', '00000000', '00000000'],
-            support: ['00011000', '00011100', '00111100', '01111110', '01111110', '01111110', '00111100', '00000000'],
-            squad: ['01100110', '01100110', '00000000', '11111111', '11111111', '01011010', '01011010', '00000000'],
-            operations: ['11000000', '11111110', '11111110', '11111100', '11000000', '11000000', '11000000', '11110000'],
-            supply: ['00011000', '01111110', '11111111', '10011001', '11111111', '10011001', '11111111', '00000000'],
-            rapid: ['01100110', '00110011', '00011001', '00110011', '01100110', '00000000', '11111111', '00000000'],
-            critical: ['00011000', '00111100', '01011010', '11111111', '11111111', '01011010', '00111100', '00011000'],
-            lock: ['00111100', '01100110', '01100110', '11111111', '11100111', '11100111', '11111111', '00000000'],
-            plus: ['00000000', '00011000', '00011000', '01111110', '01111110', '00011000', '00011000', '00000000'],
-            missile: ['00011000', '00111100', '00111100', '00111100', '01111110', '11011011', '00011000', '00011000'],
-            nuke: ['00011000', '00011000', '10011001', '11000011', '11100111', '00000000', '00111100', '01111110'],
-            adrenaline: ['00011000', '00011000', '00011000', '11111111', '11111111', '00011000', '00011000', '00011000'],
-            gold: ['00111100', '01111110', '11011011', '11011011', '11011011', '11011011', '01111110', '00111100']
-          };
+          var n = this.group('Icon', x, y, parent, size, size),
+            g = n.addComponent(Graphics);
           var aliases = {
             attack: 'armory',
             grenade: 'support',
@@ -2051,28 +2108,113 @@ System.register("chunks:///_virtual/Widgets.ts", ['./rollupPluginModLoBabelHelpe
             recon_drone: 'critical',
             airstrike: 'missile'
           };
-          var n = this.group('Icon', x, y, parent, size, size);
-          var g = n.addComponent(Graphics);
           this.bindings.push({
             node: n,
             update: function update() {
-              var key = typeof id === 'string' ? id : id();
-              var token = color();
-              var rows = patterns[aliases[key] || key] || patterns.support;
-              var unit = size / 8;
+              var raw = typeof id === 'string' ? id : id(),
+                key = aliases[raw] || raw,
+                k = size / 24;
               g.clear();
-              g.fillColor = _this4.color(token);
-              rows.forEach(function (row, iy) {
-                return row.split('').forEach(function (pixel, ix) {
-                  if (pixel === '1') {
-                    g.rect(ix * unit, -(iy + 1) * unit, unit, unit);
-                    g.fill();
-                  }
+              g.strokeColor = _this4.color(color());
+              g.fillColor = _this4.color(color());
+              g.lineWidth = 1.5 * k;
+              var line = function line(p, close) {
+                if (close === void 0) {
+                  close = false;
+                }
+                g.moveTo(p[0][0] * k, -p[0][1] * k);
+                p.slice(1).forEach(function (v) {
+                  return g.lineTo(v[0] * k, -v[1] * k);
                 });
-              });
-              g.fill();
+                if (close) g.close();
+                g.stroke();
+              };
+              var circle = function circle(x, y, r) {
+                g.circle(x * k, -y * k, r * k);
+                g.stroke();
+              };
+              var rect = function rect(x, y, w, h) {
+                g.roundRect(x * k, -(y + h) * k, w * k, h * k, 2 * k);
+                g.stroke();
+              };
+              if (key === 'hero') {
+                circle(12, 7, 4);
+                line([[3, 22], [4, 17], [8, 14], [12, 17], [16, 14], [20, 17], [21, 22]]);
+              } else if (key === 'armory') {
+                line([[2, 6], [22, 6], [22, 11], [13, 11], [10, 21], [5, 21], [8, 11], [2, 11]], true);
+                line([[15, 12], [15, 15], [11, 15]]);
+              } else if (key === 'squad') {
+                circle(12, 6, 3);
+                circle(4, 10, 2);
+                circle(20, 10, 2);
+                line([[7, 22], [7, 15], [12, 12], [17, 15], [17, 22]]);
+                line([[1, 22], [1, 16], [4, 14], [6, 16]]);
+                line([[18, 16], [20, 14], [23, 16], [23, 22]]);
+              } else if (key === 'operations') {
+                line([[4, 22], [4, 2], [21, 4], [18, 9], [21, 13], [4, 11]]);
+              } else if (key === 'supply') {
+                rect(2, 7, 20, 15);
+                line([[1, 7], [12, 2], [23, 7]]);
+                line([[12, 7], [12, 22]]);
+                line([[3, 14], [21, 14]]);
+              } else if (key === 'critical') {
+                circle(12, 12, 8);
+                circle(12, 12, 3);
+                line([[12, 0], [12, 6]]);
+                line([[12, 18], [12, 24]]);
+                line([[0, 12], [6, 12]]);
+                line([[18, 12], [24, 12]]);
+              } else if (key === 'rapid') {
+                line([[2, 4], [10, 12], [2, 20]]);
+                line([[12, 4], [20, 12], [12, 20]]);
+              } else if (key === 'gold') {
+                circle(12, 12, 10);
+                circle(12, 12, 7);
+                line([[14, 7], [10, 7], [10, 12], [14, 12], [14, 17], [9, 17]]);
+              } else if (key === 'lock') {
+                rect(4, 10, 16, 12);
+                line([[7, 10], [7, 5], [10, 2], [14, 2], [17, 5], [17, 10]]);
+                circle(12, 16, 1);
+              } else if (key === 'plus' || key === 'adrenaline') {
+                line([[9, 2], [15, 2], [15, 9], [22, 9], [22, 15], [15, 15], [15, 22], [9, 22], [9, 15], [2, 15], [2, 9], [9, 9]], true);
+              } else if (key === 'missile') {
+                line([[12, 1], [17, 7], [17, 17], [7, 17], [7, 7]], true);
+                line([[7, 12], [2, 20], [7, 18]]);
+                line([[17, 12], [22, 20], [17, 18]]);
+                line([[10, 20], [12, 24], [14, 20]]);
+              } else if (key === 'nuke') {
+                circle(12, 12, 10);
+                circle(12, 12, 2);
+                for (var i = 0; i < 3; i++) {
+                  var a = i * Math.PI * 2 / 3;
+                  line([[12 + 4 * Math.cos(a), 12 + 4 * Math.sin(a)], [12 + 8 * Math.cos(a - .4), 12 + 8 * Math.sin(a - .4)], [12 + 8 * Math.cos(a + .4), 12 + 8 * Math.sin(a + .4)]], true);
+                }
+              } else {
+                rect(6, 7, 13, 15);
+                rect(8, 2, 8, 5);
+                line([[16, 3], [21, 6], [21, 11]]);
+                line([[7, 12], [18, 12]]);
+                line([[7, 17], [18, 17]]);
+              }
             }
           });
+        };
+        _proto.image = function image(name, path, rect, x, y, w, h, parent) {
+          var n = this.group(name, x, y, parent, w, h),
+            sp = n.addComponent(Sprite);
+          sp.sizeMode = Sprite.SizeMode.CUSTOM;
+          resources.load(path + '/texture', Texture2D, function (error, texture) {
+            if (error) {
+              console.error(error);
+              return;
+            }
+            if (!n.isValid) return;
+            var frame = new SpriteFrame();
+            frame.texture = texture;
+            if (rect) frame.rect = _construct(Rect, rect);
+            sp.spriteFrame = frame;
+          });
+          return sp;
         };
         _proto.refresh = function refresh() {
           this.bindings = this.bindings.filter(function (b) {

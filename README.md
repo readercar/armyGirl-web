@@ -1,4 +1,5 @@
-# Army Girl web build
+# Army Girl — The Last Dusk Front
 
-Playable Cocos Creator 3.8.8 build.
-Source revision: 0d9d1fd051cd6d2991250a20e76eeb6edc5ea288
+Play: https://readercar.github.io/armyGirl-web/
+
+Cocos Creator 3.8.8 web build. Source revision: 8b34ac563284bfead147c3569126771c30242b67
